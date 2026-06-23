@@ -1,0 +1,30 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+frontend/.env.local
+
+# Docker volumes (local data)
+postgres_data/
+mongo_data/
+kafka_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/settings.json
+.idea/

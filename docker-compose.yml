@@ -1,0 +1,95 @@
+services:
+
+  # ─── PostgreSQL + pgvector ───────────────────────────────────────────────────
+  # Stores structured data: machines, inventory, technicians, work orders.
+  # pgvector extension enables storing and searching vector embeddings for RAG.
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: amlo_postgres
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── MongoDB ─────────────────────────────────────────────────────────────────
+  # Stores unstructured / high-volume data: raw telemetry, purchase orders,
+  # audit logs, and event history.
+  mongodb:
+    image: mongo:7
+    container_name: amlo_mongodb
+    env_file: .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Apache Kafka (KRaft mode — no Zookeeper needed) ─────────────────────────
+  # Message broker. The IoT emulator publishes sensor events here; the Sensor
+  # Service consumes them. Two listeners are configured:
+  #   EXTERNAL (port 9092) — for code running on your host machine
+  #   INTERNAL (port 9094) — for other Docker containers (e.g. Kafka UI)
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: amlo_kafka
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_LISTENERS=EXTERNAL://:9092,CONTROLLER://:9093,INTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=EXTERNAL://localhost:9092,INTERNAL://kafka:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Kafka UI ────────────────────────────────────────────────────────────────
+  # Browser-based dashboard at http://localhost:8080 to inspect Kafka topics,
+  # browse messages, and verify the IoT emulator is publishing correctly.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: amlo_kafka_ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: amlo-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9094
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  mongo_data:
+  kafka_data:
