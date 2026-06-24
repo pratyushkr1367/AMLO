@@ -1,5 +1,6 @@
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-KAFKA_TOPIC = "sensor-events"
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+MQTT_TOPIC_PREFIX = "amlo/sensors"  # publishes to amlo/sensors/{machine_id}/{sensor_type}
 
 TICK_INTERVAL = 2       # seconds between each sensor reading batch
 ANOMALY_INTERVAL = 60   # seconds between random anomaly injections
@@ -16,28 +17,26 @@ MACHINES = [
 ]
 
 # Sensor value ranges (min, max) per machine status.
-# Each sensor drifts within its band — readings outside the NORMAL band
-# are what the anomaly detector will flag in Phase 5.
 SENSOR_RANGES = {
-    "temperature": {          # celsius
-        "NORMAL":   (60.0,  80.0),
-        "DEGRADING":(80.0, 100.0),
-        "CRITICAL": (100.0, 120.0),
+    "temperature": {
+        "NORMAL":    (60.0,  80.0),
+        "DEGRADING": (80.0, 100.0),
+        "CRITICAL":  (100.0, 120.0),
     },
-    "vibration": {            # mm/s
-        "NORMAL":   (0.5,  2.0),
-        "DEGRADING":(2.0,  5.0),
-        "CRITICAL": (5.0, 10.0),
+    "vibration": {
+        "NORMAL":    (0.5,  2.0),
+        "DEGRADING": (2.0,  5.0),
+        "CRITICAL":  (5.0, 10.0),
     },
-    "pressure": {             # bar
-        "NORMAL":   (6.0,  8.0),
-        "DEGRADING":(4.0,  6.0),
-        "CRITICAL": (2.0,  4.0),
+    "pressure": {
+        "NORMAL":    (6.0, 8.0),
+        "DEGRADING": (4.0, 6.0),
+        "CRITICAL":  (2.0, 4.0),
     },
-    "rpm": {                  # revolutions per minute
-        "NORMAL":   (1400, 1600),
-        "DEGRADING":(1100, 1400),
-        "CRITICAL": (700,  1100),
+    "rpm": {
+        "NORMAL":    (1400, 1600),
+        "DEGRADING": (1100, 1400),
+        "CRITICAL":  (700,  1100),
     },
 }
 
@@ -48,10 +47,8 @@ SENSOR_UNITS = {
     "rpm":         "rpm",
 }
 
-# Per-tick probability of spontaneous state drift.
-# Keeps the simulation alive even without injected anomalies.
 DRIFT_PROBABILITIES = {
-    "NORMAL":    {"DEGRADING": 0.005},          # 0.5% chance per tick
+    "NORMAL":    {"DEGRADING": 0.005},
     "DEGRADING": {"CRITICAL": 0.01, "NORMAL": 0.008},
-    "CRITICAL":  {"DEGRADING": 0.02},           # machines can partially recover
+    "CRITICAL":  {"DEGRADING": 0.02},
 }

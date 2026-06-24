@@ -76,6 +76,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ─── Mosquitto MQTT Broker ───────────────────────────────────────────────────
+  # Receives sensor readings and AGV position updates from the emulators.
+  # The MQTT-Kafka Bridge subscribes here and forwards to Kafka.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: amlo_mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
   # ─── Kafka UI ────────────────────────────────────────────────────────────────
   # Browser-based dashboard at http://localhost:8080 to inspect Kafka topics,
   # browse messages, and verify the IoT emulator is publishing correctly.

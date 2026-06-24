@@ -2,7 +2,9 @@
 IoT Sensor Emulator — Phase 2, AMLO
 
 Simulates N factory machines cycling through NORMAL → DEGRADING → CRITICAL states.
-Publishes one Kafka message per sensor per machine on every tick.
+Publishes one MQTT message per sensor per machine on every tick.
+
+MQTT topic: amlo/sensors/{machine_id}/{sensor_type}
 
 Run: python emulator.py
 """
@@ -13,25 +15,23 @@ import time
 import threading
 from datetime import datetime, timezone
 
-from kafka import KafkaProducer
+import paho.mqtt.client as mqtt
 
 from config import (
-    KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC,
+    MQTT_BROKER, MQTT_PORT, MQTT_TOPIC_PREFIX,
     TICK_INTERVAL, ANOMALY_INTERVAL, MACHINES
 )
 from machine import Machine
 
 
-def build_producer() -> KafkaProducer:
-    return KafkaProducer(
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-        acks="all",         # wait for broker confirmation before returning
-        retries=3,
-    )
+def build_mqtt_client() -> mqtt.Client:
+    client = mqtt.Client()
+    client.connect(MQTT_BROKER, MQTT_PORT)
+    client.loop_start()
+    return client
 
 
-def publish_readings(producer: KafkaProducer, machine: Machine):
+def publish_readings(client: mqtt.Client, machine: Machine):
     for reading in machine.generate_readings():
         payload = {
             "machine_id":     machine.machine_id,
@@ -41,7 +41,8 @@ def publish_readings(producer: KafkaProducer, machine: Machine):
             "unit":           reading["unit"],
             "timestamp":      datetime.now(timezone.utc).isoformat(),
         }
-        producer.send(KAFKA_TOPIC, value=payload)
+        topic = f"{MQTT_TOPIC_PREFIX}/{machine.machine_id}/{reading['sensor_type']}"
+        client.publish(topic, json.dumps(payload))
 
 
 def anomaly_injector(machines: list[Machine], stop_event: threading.Event):
@@ -55,7 +56,7 @@ def anomaly_injector(machines: list[Machine], stop_event: threading.Event):
 
 def main():
     machines = [Machine(**m) for m in MACHINES]
-    producer = build_producer()
+    client = build_mqtt_client()
 
     stop_event = threading.Event()
     injector_thread = threading.Thread(
@@ -65,9 +66,10 @@ def main():
     )
     injector_thread.start()
 
-    print(f"Emulator started — {len(machines)} machines, "
-          f"tick every {TICK_INTERVAL}s, anomaly every {ANOMALY_INTERVAL}s")
-    print(f"Publishing to Kafka topic '{KAFKA_TOPIC}' at {KAFKA_BOOTSTRAP_SERVERS}\n")
+    print(f"IoT Emulator started — {len(machines)} machines")
+    print(f"  Publishing to MQTT: {MQTT_BROKER}:{MQTT_PORT}")
+    print(f"  Topic prefix      : {MQTT_TOPIC_PREFIX}/{{machine_id}}/{{sensor_type}}")
+    print(f"  Tick interval     : {TICK_INTERVAL}s | Anomaly interval: {ANOMALY_INTERVAL}s\n")
 
     try:
         while True:
@@ -75,20 +77,19 @@ def main():
                 drifted_to = machine.apply_drift()
                 if drifted_to:
                     print(f"  [DRIFT] {machine.machine_id} → {drifted_to}")
+                publish_readings(client, machine)
 
-                publish_readings(producer, machine)
-
-            producer.flush()
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] "
-                  f"Tick published — {len(machines) * 4} messages  |  "
-                  + "  ".join(f"{m.machine_id}:{m.status}" for m in machines))
-
+            print(
+                f"[{datetime.now().strftime('%H:%M:%S')}] Tick — {len(machines) * 4} messages published  |  "
+                + "  ".join(f"{m.machine_id}:{m.status}" for m in machines)
+            )
             time.sleep(TICK_INTERVAL)
 
     except KeyboardInterrupt:
         print("\nShutting down emulator...")
         stop_event.set()
-        producer.close()
+        client.loop_stop()
+        client.disconnect()
 
 
 if __name__ == "__main__":

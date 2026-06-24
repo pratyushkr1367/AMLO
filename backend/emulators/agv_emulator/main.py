@@ -5,20 +5,32 @@ Tracks grid position for each AGV. Exposes:
   GET  /agv/{id}/position   — current (row, col) and status
   GET  /agvs                — all AGVs
   POST /agv/{id}/dispatch   — walk a route step-by-step
-  WS   /agv/{id}/ws         — live position stream
+  WS   /agv/{id}/ws         — live position stream (frontend)
+
+Each step is also published to MQTT: amlo/agv/{agv_id}/position
+The MQTT-Kafka Bridge forwards these to the agv-updates Kafka topic.
 
 Run: python main.py
 """
 
 import asyncio
+import json
+from datetime import datetime, timezone
+
+import paho.mqtt.client as mqtt
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
 import uvicorn
 
 from agv import AGV
-from config import AGVS, STEP_INTERVAL
+from config import AGVS, STEP_INTERVAL, MQTT_BROKER, MQTT_PORT, MQTT_TOPIC_PREFIX
 
 app = FastAPI(title="AMLO AGV Emulator")
+
+# ─── MQTT client ──────────────────────────────────────────────────────────────
+mqtt_client = mqtt.Client()
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+mqtt_client.loop_start()
 
 # ─── State ────────────────────────────────────────────────────────────────────
 agvs: dict[str, AGV] = {cfg["agv_id"]: AGV(**cfg) for cfg in AGVS}
@@ -45,12 +57,20 @@ async def broadcast(agv_id: str, data: dict):
         connections[agv_id].remove(ws)
 
 
+def publish_mqtt(agv: AGV):
+    payload = {**agv.to_dict(), "timestamp": datetime.now(timezone.utc).isoformat()}
+    topic = f"{MQTT_TOPIC_PREFIX}/{agv.agv_id}/position"
+    mqtt_client.publish(topic, json.dumps(payload))
+
+
 # ─── Route walker (background task) ──────────────────────────────────────────
 async def walk_route(agv: AGV):
+    publish_mqtt(agv)
     await broadcast(agv.agv_id, agv.to_dict())
     while agv.route:
         await asyncio.sleep(STEP_INTERVAL)
         done = agv.step()
+        publish_mqtt(agv)
         await broadcast(agv.agv_id, agv.to_dict())
         if done:
             break
@@ -88,7 +108,6 @@ async def dispatch(agv_id: str, request: DispatchRequest):
     route = [{"row": cell.row, "col": cell.col} for cell in request.route]
     agv.dispatch(route)
 
-    # Cancel any in-progress route for this AGV
     if agv_id in route_tasks and not route_tasks[agv_id].done():
         route_tasks[agv_id].cancel()
 
@@ -104,11 +123,11 @@ async def websocket_endpoint(agv_id: str, websocket: WebSocket):
         return
 
     await ws_connect(agv_id, websocket)
-    await websocket.send_json(agvs[agv_id].to_dict())  # send current position on connect
+    await websocket.send_json(agvs[agv_id].to_dict())
 
     try:
         while True:
-            await websocket.receive_text()  # keep connection alive
+            await websocket.receive_text()
     except WebSocketDisconnect:
         ws_disconnect(agv_id, websocket)
 
