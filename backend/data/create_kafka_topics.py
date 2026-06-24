@@ -2,7 +2,7 @@
 Creates the three Kafka topics AMLO needs.
 Run once after the Docker stack is up.
 
-Run: python backend/db/create_kafka_topics.py
+Run: python backend/data/create_kafka_topics.py
 """
 
 from kafka.admin import KafkaAdminClient, NewTopic
