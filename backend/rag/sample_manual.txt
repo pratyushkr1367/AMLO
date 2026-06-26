@@ -1,0 +1,209 @@
+FACTORY MACHINERY MAINTENANCE MANUAL
+Model Series: CNC-2000 / LATHE-500 / PRESS-H1 / WELD-ARC
+Revision: 4.2 | Maintenance Division
+
+================================================================================
+SECTION 1 — NORMAL OPERATING PARAMETERS
+================================================================================
+
+1.1 CNC Machine (CNC-01, CNC-02)
+  Temperature       : 60°C – 80°C (spindle bearing zone)
+  Vibration         : 0.5 – 2.0 mm/s RMS
+  Spindle RPM       : 1400 – 1600 RPM (standard stock removal)
+  Coolant pressure  : 6.0 – 8.0 bar
+
+  Warning thresholds:
+    Temperature > 85°C      → inspect coolant flow and bearing lubrication
+    Temperature > 100°C     → immediate shutdown, bearing failure suspected
+    Vibration > 2.5 mm/s    → check tool balance and spindle preload
+    Vibration > 5.0 mm/s    → emergency stop, structural damage risk
+    RPM drop < 1200         → check drive belt tension and motor brushes
+    RPM drop < 900          → motor fault or drive inverter failure
+
+1.2 Lathe Machine (LATHE-01, LATHE-02)
+  Temperature       : 55°C – 78°C
+  Vibration         : 0.3 – 1.8 mm/s RMS
+  Spindle RPM       : 1400 – 1600 RPM
+  Cutting pressure  : 6.5 – 8.5 bar
+
+1.3 Hydraulic Press (PRESS-01)
+  Temperature       : 50°C – 75°C (hydraulic fluid)
+  Vibration         : 0.2 – 1.5 mm/s RMS
+  System pressure   : 6.0 – 8.0 bar
+  Warning: Pressure < 5.0 bar → seal degradation or pump wear
+  Warning: Pressure < 3.0 bar → immediate shutdown, hydraulic failure
+
+1.4 Welding Station (WELD-01, WELD-02)
+  Temperature       : 40°C – 70°C (transformer housing)
+  Vibration         : 0.1 – 1.0 mm/s RMS
+
+================================================================================
+SECTION 2 — FAULT DIAGNOSIS
+================================================================================
+
+2.1 Overheating (Temperature > 85°C)
+
+  Probable causes (in order of likelihood):
+    A. Coolant flow blockage — clogged filter or kinked hose
+    B. Spindle bearing wear — insufficient lubrication
+    C. Cutting tool dulled — generating excess friction heat
+    D. Coolant pump failure — no active cooling
+    E. Ambient temperature spike — check HVAC
+
+  Diagnostic steps:
+    1. Check coolant flow at nozzle — should be 4–6 L/min
+    2. Inspect coolant filter (Part: PN-FILT-003) — replace if pressure drop > 0.5 bar
+    3. Listen for bearing noise — grinding or squealing indicates bearing failure
+    4. Measure coolant temperature at inlet vs outlet — delta > 20°C = blockage
+    5. Check coolant pump pressure: should read 6–8 bar
+
+2.2 Excessive Vibration (Vibration > 2.5 mm/s)
+
+  Probable causes:
+    A. Unbalanced cutting tool or worn tool holder
+    B. Spindle bearing preload lost — bearing must be replaced
+    C. Loose machine base bolts — check torque specification
+    D. Worn drive belt — check belt deflection
+
+  Diagnostic steps:
+    1. Perform tool runout check — should be < 0.01mm
+    2. Manually rotate spindle — roughness indicates bearing damage
+    3. Check base mounting bolts — torque to 120 Nm (M16 bolts)
+    4. Inspect drive belt for cracking and fraying (Part: PN-BELT-001)
+
+2.3 RPM Deviation (RPM < 1200 or > 1800)
+
+  Probable causes (low RPM):
+    A. Drive belt slipping — check tension and condition
+    B. Motor brushes worn — carbon deposit buildup
+    C. Inverter drive fault — check drive display for error code
+    D. Spindle load too high — reduce depth of cut
+
+  Probable causes (high RPM):
+    A. Speed controller fault
+    B. Feedback encoder failure
+
+2.4 Pressure Loss (Pressure < 5.0 bar)
+  Probable causes:
+    A. Hydraulic seal degradation (Part: PN-SEAL-004)
+    B. Pump wear — measure pump output at bypass
+    C. Internal leak — inspect hose fittings and valve seats
+    D. Hydraulic filter clogged (Part: PN-FILT-003)
+
+================================================================================
+SECTION 3 — REPAIR PROCEDURES
+================================================================================
+
+3.1 Spindle Bearing Replacement
+
+  Required parts:
+    - Ball Bearing 6205 (Part: PN-BEAR-002) × 2
+    - Oil Seal 40x60x10 (Part: PN-SEAL-004) × 1
+    - Grease: SKF LGMT 3, 10g per bearing
+
+  Safety: LOCKOUT / TAGOUT before starting. Allow machine to cool below 40°C.
+
+  Steps:
+    1. Remove spindle cover (4× M8 bolts, 22 Nm torque).
+    2. Loosen draw bar and remove tool holder.
+    3. Remove spindle nose nut — LEFT-HAND THREAD, torque 180 Nm.
+    4. Use bearing puller to extract front bearing — do NOT hammer.
+    5. Clean bearing housing with lint-free cloth and isopropyl alcohol.
+    6. Press new bearing (PN-BEAR-002) using bearing press — apply force to outer race only.
+    7. Pack bearing with 10g of LGMT 3 grease.
+    8. Replace oil seal (PN-SEAL-004) — lip faces inward.
+    9. Reassemble spindle nose nut — torque to 180 Nm LEFT-HAND THREAD.
+    10. Replace spindle cover — torque M8 bolts to 22 Nm in cross pattern.
+    11. Run spindle at 500 RPM for 10 minutes — monitor temperature.
+    12. Verify vibration < 1.5 mm/s before returning to production.
+
+3.2 Coolant Filter Replacement
+
+  Required parts:
+    - Hydraulic Filter HF10 (Part: PN-FILT-003) × 1
+
+  Steps:
+    1. Shut down machine and depressurise coolant system.
+    2. Place drip tray beneath filter housing.
+    3. Unscrew filter housing (counterclockwise) — 60 Nm torque.
+    4. Remove old filter element and dispose of properly.
+    5. Clean housing interior with lint-free cloth.
+    6. Insert new filter element (PN-FILT-003).
+    7. Refit housing — torque to 60 Nm.
+    8. Restart coolant pump and check for leaks.
+    9. Verify coolant pressure returns to 6–8 bar.
+
+3.3 Drive Belt Replacement
+
+  Required parts:
+    - Drive Belt A40 (Part: PN-BELT-001) × 1
+
+  Steps:
+    1. Isolate power — LOCKOUT / TAGOUT.
+    2. Remove belt guard (2× M6 bolts, 10 Nm).
+    3. Loosen motor mounting bolts to relieve belt tension.
+    4. Slide old belt off pulleys.
+    5. Fit new belt (PN-BELT-001) — do NOT use tools to lever onto pulley.
+    6. Adjust motor position for correct tension: 10mm deflection under 50N force.
+    7. Retighten motor mounting bolts — 45 Nm.
+    8. Refit belt guard — 10 Nm.
+    9. Run machine at low speed for 5 minutes and recheck tension.
+
+3.4 Hydraulic Seal Replacement
+
+  Required parts:
+    - Oil Seal 40x60x10 (Part: PN-SEAL-004) × 2
+
+  Steps:
+    1. Depressurise hydraulic system completely — bleed valve on accumulator.
+    2. Drain hydraulic fluid into clean container.
+    3. Remove cylinder end cap (8× M10 bolts, 75 Nm).
+    4. Extract piston rod carefully — support with padded V-blocks.
+    5. Remove old seals from piston groove — use plastic tool only.
+    6. Clean piston rod with lint-free cloth — inspect for scoring.
+    7. Lubricate new seals (PN-SEAL-004) with clean hydraulic fluid.
+    8. Fit seals — lip must face pressure side.
+    9. Reassemble cylinder — torque end cap bolts to 75 Nm in star pattern.
+    10. Refill hydraulic fluid and bleed system.
+    11. Test at full pressure — verify no leaks.
+
+================================================================================
+SECTION 4 — TORQUE SPECIFICATIONS SUMMARY
+================================================================================
+
+  Spindle nose nut (M40 LEFT-HAND)   : 180 Nm
+  Spindle cover bolts (M8)           : 22 Nm
+  Motor mounting bolts (M12)         : 45 Nm
+  Belt guard bolts (M6)              : 10 Nm
+  Machine base bolts (M16)           : 120 Nm
+  Coolant filter housing             : 60 Nm
+  Hydraulic cylinder end cap (M10)   : 75 Nm
+
+================================================================================
+SECTION 5 — PREVENTIVE MAINTENANCE SCHEDULE
+================================================================================
+
+  Daily:
+    - Check coolant level and colour
+    - Inspect belt for visible damage
+    - Log temperature, vibration, RPM at startup
+
+  Weekly:
+    - Clean coolant filter strainer
+    - Check hydraulic fluid level
+    - Verify all safety guards in place
+
+  Monthly:
+    - Replace coolant filter (PN-FILT-003) if pressure drop > 0.5 bar
+    - Lubricate spindle bearings
+    - Check drive belt tension
+
+  Quarterly:
+    - Replace drive belts (PN-BELT-001)
+    - Full bearing inspection
+    - Hydraulic fluid analysis
+
+  Annually:
+    - Full spindle overhaul
+    - Replace all seals (PN-SEAL-004)
+    - Electrical insulation test
