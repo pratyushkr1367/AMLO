@@ -1,0 +1,5 @@
+langgraph
+httpx
+pymongo
+kafka-python-ng
+python-dotenv
