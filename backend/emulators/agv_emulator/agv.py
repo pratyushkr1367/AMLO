@@ -25,9 +25,12 @@ class AGV:
 
     def to_dict(self) -> dict:
         return {
-            "agv_id":          self.agv_id,
-            "row":             self.row,
-            "col":             self.col,
-            "status":          self.status,
+            "id":       self.agv_id,
+            "agv_id":   self.agv_id,
+            "position": {"row": self.row, "col": self.col},
+            "row":      self.row,
+            "col":      self.col,
+            "status":   self.status,
+            "busy":     self.status == "MOVING",
             "route_remaining": len(self.route),
         }

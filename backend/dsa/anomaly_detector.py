@@ -98,15 +98,11 @@ def _notify(machine_id: str, sensor_type: str, severity: str, average: float):
 
 
 def main():
-    consumer = _build_consumer()
     producer = _build_producer()
 
-    # queues[machine_id][sensor_type] = CircularQueue
     queues: dict[str, dict[str, CircularQueue]] = defaultdict(
         lambda: defaultdict(lambda: CircularQueue(WINDOW_SIZE))
     )
-
-    # Track last known severity to avoid duplicate alerts
     last_severity: dict[str, dict[str, str]] = defaultdict(lambda: defaultdict(lambda: "NORMAL"))
 
     print(f"Anomaly Detector started")
@@ -114,6 +110,22 @@ def main():
     print(f"  Window    : {WINDOW_SIZE} readings per sensor per machine")
     print(f"  Publishing: {KAFKA_OUTPUT_TOPIC}\n")
 
+    while True:
+        try:
+            consumer = _build_consumer()
+            _run(consumer, producer, queues, last_severity)
+        except ValueError as e:
+            if "Invalid file descriptor" in str(e):
+                print("[WARN] Kafka selector error — restarting consumer...")
+                try:
+                    consumer.close()
+                except Exception:
+                    pass
+                continue
+            raise
+
+
+def _run(consumer, producer, queues, last_severity):
     for message in consumer:
         reading = message.value
         machine_id  = reading["machine_id"]

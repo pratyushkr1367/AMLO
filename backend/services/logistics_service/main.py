@@ -17,12 +17,14 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, AGV_EMULATOR_URL, PORT
 
 app = FastAPI(title="AMLO Logistics Service")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 
 _pool = pool.ThreadedConnectionPool(
     1, 10,

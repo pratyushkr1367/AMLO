@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -26,6 +27,7 @@ from agv import AGV
 from config import AGVS, STEP_INTERVAL, MQTT_BROKER, MQTT_PORT, MQTT_TOPIC_PREFIX
 
 app = FastAPI(title="AMLO AGV Emulator")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 
 # ─── MQTT client ──────────────────────────────────────────────────────────────
 mqtt_client = mqtt.Client()

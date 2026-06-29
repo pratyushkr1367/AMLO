@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
 import uvicorn
@@ -20,6 +21,7 @@ import uvicorn
 from config import MONGO_URI, MONGO_DB, MONGO_COLLECTION, PORT
 
 app = FastAPI(title="AMLO Notification Service")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"], allow_credentials=True)
 
 # MongoDB
 _mongo = MongoClient(MONGO_URI)
@@ -67,6 +69,15 @@ async def notify(alert: Alert):
 
     print(f"[{doc['event_type']}] {doc['actor']} → {doc['entity_type']}:{doc['entity_id']}")
     return {"status": "sent", "clients_notified": len(_clients)}
+
+
+@app.get("/alerts/recent")
+def recent_alerts(limit: int = 20):
+    docs = list(audit_logs.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit))
+    for d in docs:
+        if hasattr(d.get("timestamp"), "isoformat"):
+            d["timestamp"] = d["timestamp"].isoformat()
+    return docs
 
 
 @app.websocket("/ws/alerts")

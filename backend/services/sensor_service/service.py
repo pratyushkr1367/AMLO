@@ -31,28 +31,34 @@ def build_consumer() -> KafkaConsumer:
 
 
 def main():
-    consumer = build_consumer()
     collection = MongoClient(MONGO_URI)[MONGO_DB][MONGO_COLLECTION]
 
     print(f"Sensor Service started")
     print(f"  Consuming : {KAFKA_TOPIC} (group: {KAFKA_GROUP_ID})")
     print(f"  Writing to: MongoDB → {MONGO_DB}.{MONGO_COLLECTION}\n")
 
-    for message in consumer:
-        doc = message.value
-
-        # Store timestamp as a native datetime so MongoDB can index and
-        # query it by time range — the emulator sends it as an ISO string.
-        doc["timestamp"] = datetime.fromisoformat(doc["timestamp"])
-
-        collection.insert_one(doc)
-
-        print(
-            f"[offset {message.offset:>6}] "
-            f"{doc['machine_id']:<10} | "
-            f"{doc['sensor_type']:<12} {doc['value']:>7} {doc['unit']:<8} | "
-            f"{doc['machine_status']}"
-        )
+    while True:
+        try:
+            consumer = build_consumer()
+            for message in consumer:
+                doc = message.value
+                doc["timestamp"] = datetime.fromisoformat(doc["timestamp"])
+                collection.insert_one(doc)
+                print(
+                    f"[offset {message.offset:>6}] "
+                    f"{doc['machine_id']:<10} | "
+                    f"{doc['sensor_type']:<12} {doc['value']:>7} {doc['unit']:<8} | "
+                    f"{doc['machine_status']}"
+                )
+        except ValueError as e:
+            if "Invalid file descriptor" in str(e):
+                print("[WARN] Kafka selector error — restarting consumer...")
+                try:
+                    consumer.close()
+                except Exception:
+                    pass
+                continue
+            raise
 
 
 if __name__ == "__main__":

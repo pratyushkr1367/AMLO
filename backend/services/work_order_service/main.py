@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
 import psycopg2.extras
@@ -25,6 +26,7 @@ import uvicorn
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, PORT
 
 app = FastAPI(title="AMLO Work Order Service")
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 
 _pool = pool.ThreadedConnectionPool(
     1, 10,
