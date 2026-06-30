@@ -1,11 +1,20 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import useSWR from 'swr'
-import { Package } from 'lucide-react'
+import { Package, History } from 'lucide-react'
 import clsx from 'clsx'
 import { fetcher, API } from '@/lib/api'
-import type { InventoryItem } from '@/lib/types'
+import { StatusBadge } from '@/components/StatusBadge'
+import type { InventoryItem, WorkOrder, WorkOrderStatus, MachineStatus } from '@/lib/types'
+
+function woStatusToMachineStatus(s: WorkOrderStatus): MachineStatus {
+  if (s === 'OPEN')        return 'CRITICAL'
+  if (s === 'IN_PROGRESS') return 'DEGRADING'
+  if (s === 'COMPLETED')   return 'NORMAL'
+  return 'OFFLINE'
+}
 
 function StockBar({ qty, min }: { qty: number; min: number }) {
   const pct = Math.min(100, (qty / Math.max(min * 3, 1)) * 100)
@@ -30,12 +39,34 @@ function StockBar({ qty, min }: { qty: number; min: number }) {
   )
 }
 
+type Part = { part_number: string; part_name: string; quantity: number }
+
+function safeparts(raw: unknown): Part[] {
+  if (Array.isArray(raw)) return raw as Part[]
+  if (typeof raw === 'string') { try { return JSON.parse(raw) } catch { return [] } }
+  return []
+}
+
 export default function InventoryPage() {
-  const { data: _items } = useSWR(API.inventory, fetcher, { refreshInterval: 10000 })
-  const items: InventoryItem[] = Array.isArray(_items) ? _items : []
+  const [tab, setTab] = useState<'stock' | 'history'>('stock')
+
+  const { data: _items }      = useSWR(API.inventory,   fetcher, { refreshInterval: 10000 })
+  const { data: _workOrders } = useSWR(API.workOrders,  fetcher, { refreshInterval: 10000 })
+
+  const items: InventoryItem[] = Array.isArray(_items)      ? _items      : []
+  const workOrders: WorkOrder[] = Array.isArray(_workOrders) ? _workOrders : []
+
+  const historyRows = workOrders
+    .map(wo => ({ ...wo, _parts: safeparts(wo.parts_used) }))
+    .filter(wo => wo._parts.length > 0)
 
   const outOfStock = items.filter(i => i.quantity === 0).length
   const lowStock   = items.filter(i => i.quantity > 0 && i.quantity <= i.reorder_threshold).length
+
+  const TABS = [
+    { id: 'stock',   label: 'Stock',   icon: Package },
+    { id: 'history', label: 'History', icon: History },
+  ] as const
 
   return (
     <div className='p-6 space-y-6'>
@@ -68,34 +99,114 @@ export default function InventoryPage() {
         </motion.div>
       )}
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className='card overflow-hidden'>
-        <div className='grid grid-cols-[1fr_2fr_80px_1.5fr_80px] gap-4 px-5 py-3 border-b border-border'>
-          {['Part No.', 'Name', 'Unit', 'Stock Level', 'Reorder At'].map(h => (
-            <span key={h} className='text-[10px] font-mono text-slate-600 uppercase tracking-widest'>{h}</span>
-          ))}
-        </div>
-        <div className='divide-y divide-border'>
-          {items.length === 0 && (
-            <p className='text-center text-slate-600 font-mono text-sm py-10'>No inventory data</p>
-          )}
-          {items.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              whileHover={{ backgroundColor: 'rgba(17,24,39,0.8)' }}
-              className='grid grid-cols-[1fr_2fr_80px_1.5fr_80px] gap-4 px-5 py-3.5 items-center transition-colors'
+      {/* Tabs */}
+      <div className='flex gap-1 p-1 rounded-xl bg-surface-1 ring-1 ring-border w-fit'>
+        {TABS.map(t => {
+          const Icon = t.icon
+          const active = tab === t.id
+          return (
+            <motion.button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              whileTap={{ scale: 0.97 }}
+              className={clsx(
+                'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors',
+                active ? 'bg-accent/20 text-accent ring-1 ring-accent/30' : 'text-slate-400 hover:text-slate-200',
+              )}
             >
-              <span className='font-mono text-xs text-accent'>{item.part_number}</span>
-              <span className='text-sm text-slate-300'>{item.part_name}</span>
-              <span className='text-xs font-mono text-slate-500'>{item.unit}</span>
-              <StockBar qty={item.quantity} min={item.reorder_threshold} />
-              <span className='text-xs font-mono text-slate-500'>{item.reorder_threshold}</span>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+              <Icon className='w-3 h-3' />
+              {t.label}
+            </motion.button>
+          )
+        })}
+      </div>
+
+      <AnimatePresence mode='wait'>
+        {tab === 'stock' ? (
+          <motion.div
+            key='stock'
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className='card overflow-hidden'
+          >
+            <div className='grid grid-cols-[1fr_2fr_80px_1.5fr_80px] gap-4 px-5 py-3 border-b border-border'>
+              {['Part No.', 'Name', 'Unit', 'Stock Level', 'Reorder At'].map(h => (
+                <span key={h} className='text-[10px] font-mono text-slate-600 uppercase tracking-widest'>{h}</span>
+              ))}
+            </div>
+            <div className='divide-y divide-border'>
+              {items.length === 0 && (
+                <p className='text-center text-slate-600 font-mono text-sm py-10'>No inventory data</p>
+              )}
+              {items.map((item, i) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  whileHover={{ backgroundColor: 'rgba(17,24,39,0.8)' }}
+                  className='grid grid-cols-[1fr_2fr_80px_1.5fr_80px] gap-4 px-5 py-3.5 items-center transition-colors'
+                >
+                  <span className='font-mono text-xs text-accent'>{item.part_number}</span>
+                  <span className='text-sm text-slate-300'>{item.part_name}</span>
+                  <span className='text-xs font-mono text-slate-500'>{item.unit}</span>
+                  <StockBar qty={item.quantity} min={item.reorder_threshold} />
+                  <span className='text-xs font-mono text-slate-500'>{item.reorder_threshold}</span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key='history'
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className='card overflow-hidden'
+          >
+            <div className='grid grid-cols-[60px_120px_1fr_140px_100px] gap-4 px-5 py-3 border-b border-border'>
+              {['WO #', 'Machine', 'Parts Used', 'Date', 'Status'].map(h => (
+                <span key={h} className='text-[10px] font-mono text-slate-600 uppercase tracking-widest'>{h}</span>
+              ))}
+            </div>
+            <div className='divide-y divide-border'>
+              {historyRows.length === 0 && (
+                <p className='text-center text-slate-600 font-mono text-sm py-10'>No parts consumed yet</p>
+              )}
+              {historyRows.map((wo, i) => (
+                <motion.div
+                  key={wo.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className='grid grid-cols-[60px_120px_1fr_140px_100px] gap-4 px-5 py-3.5 items-start'
+                >
+                  <span className='font-mono text-xs text-accent pt-0.5'>#{wo.id}</span>
+                  <span className='font-mono text-xs text-slate-400 pt-0.5'>{wo.machine_id}</span>
+                  <div className='space-y-1'>
+                    {wo._parts.map((p, j) => (
+                      <div key={j} className='flex items-center gap-2'>
+                        <span className='text-[10px] font-mono text-accent/70'>{p.part_number}</span>
+                        <span className='text-xs text-slate-400'>{p.part_name}</span>
+                        <span className='text-[10px] font-mono text-slate-600'>×{p.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <span className='text-xs font-mono text-slate-500 pt-0.5'>
+                    {wo.completed_at
+                      ? new Date(wo.completed_at).toLocaleString()
+                      : new Date(wo.created_at).toLocaleString()}
+                  </span>
+                  <div className='pt-0.5'>
+                    <StatusBadge status={woStatusToMachineStatus(wo.status)} size='xs' />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

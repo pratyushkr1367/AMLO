@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useSWR from 'swr'
-import { ClipboardList, ChevronDown, ChevronUp } from 'lucide-react'
+import { ClipboardList, ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { fetcher, API } from '@/lib/api'
 import { StatusBadge } from '@/components/StatusBadge'
 import type { WorkOrder, WorkOrderStatus, MachineStatus } from '@/lib/types'
+
+const FALLBACK_FAULT = 'Sensor anomaly detected — LLM unavailable (rate limit)'
 
 const FILTERS: { label: string; value: string }[] = [
   { label: 'All',         value: 'ALL'        },
@@ -30,25 +32,74 @@ function woStatusToMachineStatus(s: WorkOrderStatus): MachineStatus {
   return 'OFFLINE'
 }
 
-function WorkOrderRow({ wo, index }: { wo: WorkOrder; index: number }) {
-  const [open, setOpen] = useState(false)
+function WorkOrderRow({ wo, index, onRetrySuccess }: {
+  wo: WorkOrder
+  index: number
+  onRetrySuccess: () => void
+}) {
+  const [open, setOpen]         = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [retryMsg, setRetryMsg] = useState<string | null>(null)
+
+  const isFallback = wo.fault_type === FALLBACK_FAULT && wo.status === 'OPEN'
+
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRetrying(true)
+    setRetryMsg(null)
+    try {
+      const res  = await fetch(`/api/orchestration/retry/${wo.id}`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setRetryMsg(`✓ ${data.diagnosis}`)
+        onRetrySuccess()
+      } else {
+        setRetryMsg(`✗ ${data.error ?? 'Still rate limited — try again later'}`)
+      }
+    } catch {
+      setRetryMsg('✗ Could not reach orchestration service')
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: index * 0.02 }}
       className='card overflow-hidden'
     >
-      <button
+      <div
         onClick={() => setOpen(p => !p)}
-        className='w-full flex items-center gap-4 p-4 text-left hover:bg-surface-3 transition-colors'
+        className='w-full flex items-center gap-4 p-4 text-left hover:bg-surface-3 transition-colors cursor-pointer'
       >
         <span className='font-mono text-xs text-slate-500 w-8'>#{wo.id}</span>
         <div className='flex-1 min-w-0'>
-          <p className='text-sm font-medium text-slate-200 truncate'>{wo.fault_type ?? 'Unknown Fault'}</p>
+          <div className='flex items-center gap-2'>
+            <p className='text-sm font-medium text-slate-200 truncate'>{wo.fault_type ?? 'Unknown Fault'}</p>
+            {isFallback && (
+              <span className='shrink-0 text-[10px] font-mono text-status-degrading bg-status-degrading/10 px-1.5 py-0.5 rounded border border-status-degrading/20'>
+                LLM pending
+              </span>
+            )}
+          </div>
           <p className='text-xs text-slate-500 mt-0.5 truncate'>{wo.description?.slice(0, 80) ?? '—'}</p>
         </div>
+
+        {isFallback && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRetry}
+            disabled={retrying}
+            className='shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 border border-accent/20 text-accent text-xs font-mono transition-colors disabled:opacity-50'
+          >
+            <RefreshCw className={clsx('w-3 h-3', retrying && 'animate-spin')} />
+            {retrying ? 'Retrying…' : 'Retry LLM'}
+          </motion.button>
+        )}
+
         <span className={clsx('text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ring-1 shrink-0', PRIORITY_COLOR[wo.priority])}>
           {wo.priority}
         </span>
@@ -57,7 +108,16 @@ function WorkOrderRow({ wo, index }: { wo: WorkOrder; index: number }) {
           {new Date(wo.created_at).toLocaleDateString()}
         </span>
         {open ? <ChevronUp className='w-4 h-4 text-slate-500 shrink-0' /> : <ChevronDown className='w-4 h-4 text-slate-500 shrink-0' />}
-      </button>
+      </div>
+
+      {retryMsg && (
+        <div className={clsx(
+          'px-4 py-2 text-xs font-mono border-t border-border',
+          retryMsg.startsWith('✓') ? 'text-status-normal bg-status-normal/5' : 'text-status-degrading bg-status-degrading/5'
+        )}>
+          {retryMsg}
+        </div>
+      )}
 
       <AnimatePresence>
         {open && (
@@ -100,11 +160,24 @@ function WorkOrderRow({ wo, index }: { wo: WorkOrder; index: number }) {
 }
 
 export default function WorkOrdersPage() {
-  const [filter, setFilter] = useState('ALL')
-  const { data: _workOrders } = useSWR(API.workOrders, fetcher, { refreshInterval: 5000 })
+  const [filter, setFilter]       = useState('ALL')
+  const [clearing, setClearing]   = useState(false)
+  const { data: _workOrders, mutate } = useSWR(API.workOrders, fetcher, { refreshInterval: 5000 })
   const workOrders: WorkOrder[] = Array.isArray(_workOrders) ? _workOrders : []
 
   const filtered = filter === 'ALL' ? workOrders : workOrders.filter(w => w.status === filter)
+  const fallbackCount = workOrders.filter(w => w.fault_type === FALLBACK_FAULT && w.status === 'OPEN').length
+
+  const handleClearAll = async () => {
+    if (!confirm(`Delete all ${workOrders.length} work orders? This cannot be undone.`)) return
+    setClearing(true)
+    try {
+      await fetch(API.workOrders, { method: 'DELETE' })
+      await mutate()
+    } finally {
+      setClearing(false)
+    }
+  }
 
   return (
     <div className='p-6 space-y-6'>
@@ -112,10 +185,27 @@ export default function WorkOrdersPage() {
         <div className='flex items-center justify-center w-9 h-9 rounded-xl bg-accent/10 ring-1 ring-accent/20'>
           <ClipboardList className='w-4 h-4 text-accent' />
         </div>
-        <div>
+        <div className='flex-1'>
           <h1 className='text-xl font-bold text-slate-100'>Work Orders</h1>
-          <p className='text-xs text-slate-500 font-mono mt-0.5'>{workOrders.length} total</p>
+          <p className='text-xs text-slate-500 font-mono mt-0.5'>
+            {workOrders.length} total
+            {fallbackCount > 0 && (
+              <span className='ml-2 text-status-degrading'>{fallbackCount} awaiting LLM retry</span>
+            )}
+          </p>
         </div>
+        {workOrders.length > 0 && (
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleClearAll}
+            disabled={clearing}
+            className='flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-critical/10 hover:bg-status-critical/20 border border-status-critical/20 text-status-critical text-xs font-mono transition-colors disabled:opacity-50'
+          >
+            <Trash2 className='w-3 h-3' />
+            {clearing ? 'Clearing…' : 'Clear All'}
+          </motion.button>
+        )}
       </motion.div>
 
       {/* Filters */}
@@ -146,7 +236,9 @@ export default function WorkOrdersPage() {
               No work orders
             </motion.p>
           )}
-          {filtered.map((wo, i) => <WorkOrderRow key={wo.id} wo={wo} index={i} />)}
+          {filtered.map((wo, i) => (
+            <WorkOrderRow key={wo.id} wo={wo} index={i} onRetrySuccess={() => mutate()} />
+          ))}
         </AnimatePresence>
       </div>
     </div>

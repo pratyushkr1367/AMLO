@@ -52,6 +52,22 @@ export interface Technician {
   location_col: number
 }
 
+export type POStatus = 'OPEN' | 'PROCESSING' | 'COMPLETED'
+
+export interface PurchaseOrder {
+  id: number
+  part_number: string
+  part_name: string
+  quantity_ordered: number
+  quantity_at_order: number
+  reorder_threshold: number
+  max_stock: number
+  status: POStatus
+  created_at: string
+  approved_at: string | null
+  completed_at: string | null
+}
+
 export interface AlertPayload {
   sensor_type: string
   average_value: number

@@ -7,6 +7,7 @@ import { MetricCard } from '@/components/MetricCard'
 import { MachineCard } from '@/components/MachineCard'
 import { LiveAlertsFeed } from '@/components/LiveAlertsFeed'
 import { StatusBadge } from '@/components/StatusBadge'
+import { LLMProviderToggle } from '@/components/LLMProviderToggle'
 import { fetcher, API } from '@/lib/api'
 import type { Machine, WorkOrder } from '@/lib/types'
 
@@ -40,6 +41,7 @@ export default function Dashboard() {
           <p className='text-xs text-slate-500 font-mono mt-0.5'>Autonomous Maintenance & Logistics Orchestrator</p>
         </div>
         <div className='flex items-center gap-4'>
+          <LLMProviderToggle />
           <Clock />
           <div className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-status-normal/10 ring-1 ring-status-normal/20'>
             <span className='relative flex h-2 w-2'>
