@@ -72,7 +72,7 @@ def _set_status(wo_id: int, status: str):
 
 
 def _check_and_deduct_parts(parts_used: list) -> bool:
-    """Return True if all parts are sufficiently stocked, and deduct them."""
+    """Return True if all known parts are sufficiently stocked. Unknown part numbers are skipped."""
     for part in parts_used:
         if not isinstance(part, dict):
             continue
@@ -82,10 +82,12 @@ def _check_and_deduct_parts(parts_used: list) -> bool:
             continue
         try:
             r = httpx.get(f"{INVENTORY_URL}/inventory/{pn}", timeout=3.0)
+            if r.status_code == 404:
+                continue  # part not in our inventory — skip, don't block
             if r.status_code != 200 or r.json().get("quantity", 0) < qty:
                 return False
         except Exception:
-            return False
+            continue  # inventory unreachable — don't block WO indefinitely
     return True
 
 
@@ -98,11 +100,13 @@ def _deduct_parts(parts_used: list):
         if not pn:
             continue
         try:
-            httpx.post(
+            r = httpx.post(
                 f"{INVENTORY_URL}/inventory/{pn}/decrement",
                 json={"quantity": qty},
                 timeout=3.0
             )
+            if r.status_code == 404:
+                print(f"[WorkOrder] Part {pn} not in inventory — skipping deduction")
         except Exception as e:
             print(f"[WorkOrder] Failed to deduct {pn}: {e}")
 
