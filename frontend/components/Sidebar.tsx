@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LayoutDashboard, Factory, Bell, ClipboardList, Package, ShoppingCart, ChevronLeft, ChevronRight, Cpu } from 'lucide-react'
+import { LayoutDashboard, Factory, Bell, ClipboardList, Package, ShoppingCart, BarChart2, ChevronLeft, ChevronRight, Cpu } from 'lucide-react'
 import clsx from 'clsx'
 import useSWR from 'swr'
 import { fetcher, API } from '@/lib/api'
@@ -17,6 +17,7 @@ const nav = [
   { href: '/work-orders', label: 'Work Orders',   icon: ClipboardList },
   { href: '/inventory',       label: 'Inventory',       icon: Package },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+  { href: '/analytics',       label: 'Analytics',       icon: BarChart2 },
 ]
 
 export function Sidebar() {

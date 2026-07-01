@@ -14,7 +14,8 @@ _rag = os.path.join(os.path.dirname(__file__), "..", "rag")
 if _rag not in sys.path:
     sys.path.insert(0, _rag)
 
-from llm import analyze_root_cause, generate_repair_steps
+from root_cause_analyzer import analyze_root_cause
+from repair_advisor import generate_repair_steps
 from state import OrchestratorState
 
 # Cache keyed by (machine_type, sensor_type, severity) — only stores successful LLM results

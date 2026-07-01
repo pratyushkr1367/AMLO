@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useSWR from 'swr'
-import { ShoppingCart, CheckCircle, Clock, Loader2 } from 'lucide-react'
+import { ShoppingCart, CheckCircle, Clock, Loader2, Zap, Hand } from 'lucide-react'
 import clsx from 'clsx'
 import { fetcher, API } from '@/lib/api'
 import type { PurchaseOrder, POStatus } from '@/lib/types'
@@ -91,10 +91,29 @@ function PORow({ po, onApprove, approving }: {
 }
 
 export default function PurchaseOrdersPage() {
-  const [activeTab, setActiveTab] = useState<POStatus>('OPEN')
+  const [activeTab, setActiveTab]     = useState<POStatus>('OPEN')
   const [approvingIds, setApprovingIds] = useState<Set<number>>(new Set())
+  const [toggling, setToggling]       = useState(false)
 
-  const { data: _all, mutate } = useSWR(API.purchaseOrders, fetcher, { refreshInterval: 3000 })
+  const { data: _all, mutate }        = useSWR(API.purchaseOrders, fetcher, { refreshInterval: 3000 })
+  const { data: modeData, mutate: mutateMode } = useSWR(
+    `${API.purchaseOrders}/approval-mode`, fetcher, { refreshInterval: 5000 }
+  )
+  const isAuto = modeData?.mode === 'auto'
+
+  const toggleMode = async () => {
+    setToggling(true)
+    try {
+      await fetch(`${API.purchaseOrders}/approval-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: isAuto ? 'manual' : 'auto' }),
+      })
+      await mutateMode()
+    } finally {
+      setToggling(false)
+    }
+  }
   const all: PurchaseOrder[] = Array.isArray(_all) ? _all : []
 
   const counts = {
@@ -121,12 +140,31 @@ export default function PurchaseOrdersPage() {
         <div className='flex items-center justify-center w-9 h-9 rounded-xl bg-accent/10 ring-1 ring-accent/20'>
           <ShoppingCart className='w-4 h-4 text-accent' />
         </div>
-        <div>
+        <div className='flex-1'>
           <h1 className='text-xl font-bold text-slate-100'>Purchase Orders</h1>
           <p className='text-xs text-slate-500 font-mono mt-0.5'>
             Auto-created when inventory falls below reorder threshold
           </p>
         </div>
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={toggleMode}
+          disabled={toggling || !modeData}
+          title={isAuto ? 'Switch to manual approval' : 'Switch to automatic approval'}
+          className={clsx(
+            'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-mono font-semibold transition-colors disabled:opacity-50',
+            isAuto
+              ? 'bg-status-normal/10 border-status-normal/20 text-status-normal hover:bg-status-normal/20'
+              : 'bg-surface-2 border-border text-slate-400 hover:text-slate-200 hover:border-border-bright',
+          )}
+        >
+          {toggling
+            ? <Loader2 className='w-3 h-3 animate-spin' />
+            : isAuto ? <Zap className='w-3 h-3' /> : <Hand className='w-3 h-3' />
+          }
+          {isAuto ? 'Auto-Approve' : 'Manual Approve'}
+        </motion.button>
       </motion.div>
 
       {/* Tabs */}

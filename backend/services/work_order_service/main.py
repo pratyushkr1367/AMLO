@@ -144,15 +144,25 @@ def _safe_qty(value) -> int:
 
 
 def _poll_open_work_orders():
-    """Periodically pick up existing OPEN work orders and auto-complete them if parts available."""
+    """Periodically pick up OPEN work orders and recover orphaned IN_PROGRESS ones."""
     time.sleep(5)  # let the service fully start
     while True:
         try:
             with db() as cur:
-                cur.execute("SELECT id, fault_type, parts_used FROM work_orders WHERE status = 'OPEN'")
+                cur.execute(
+                    "SELECT id, fault_type, parts_used, status FROM work_orders WHERE status IN ('OPEN', 'IN_PROGRESS')"
+                )
                 rows = [dict(r) for r in cur.fetchall()]
 
+            # Recover IN_PROGRESS WOs not tracked in _in_flight (service restarted mid-run)
             for row in rows:
+                if row["status"] == "IN_PROGRESS" and row["id"] not in _in_flight:
+                    print(f"[WorkOrder] Recovering orphaned IN_PROGRESS #{row['id']}")
+                    _in_flight.add(row["id"])
+                    parts = _safe_parse_parts(row["parts_used"])
+                    threading.Thread(target=_auto_complete, args=(row["id"], parts), daemon=True).start()
+
+            for row in [r for r in rows if r["status"] == "OPEN"]:
                 wo_id = row["id"]
                 if wo_id in _in_flight:
                     continue
