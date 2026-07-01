@@ -69,7 +69,7 @@ export function LiveAlertsFeed({ maxItems = 20 }: { maxItems?: number }) {
   // WebSocket for live incoming events
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket('ws://localhost:8006/ws/alerts')
+      const ws = new WebSocket(`ws://${process.env.NEXT_PUBLIC_BACKEND_HOST || 'localhost'}:8006/ws/alerts`)
       wsRef.current = ws
 
       ws.onmessage = (e) => {
